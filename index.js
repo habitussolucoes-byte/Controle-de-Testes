@@ -11,19 +11,18 @@ const save = () => {
     localStorage.setItem('vip_clients', JSON.stringify(state.clients));
 };
 
-function openWhatsApp(phone, message) {
+window.openWhatsApp = function(phone, message) {
   const encodedMessage = encodeURIComponent(message);
   const waApp = `whatsapp://send?phone=${phone}&text=${encodedMessage}`;
   const waWeb = `https://wa.me/${phone}?text=${encodedMessage}`;
 
-  // Tenta abrir app
   window.location.href = waApp;
 
-  // Se falhar (apenas fallback visual), abre web
   setTimeout(() => {
     window.open(waWeb, "_blank");
-  }, 500);
-}
+  }, 1000);
+};
+
 
 
 // Funções de Negócio
