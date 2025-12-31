@@ -1,2 +1,2 @@
 
-// Este arquivo não é mais utilizado. Toda a lógica foi migrada para index.tsx como JavaScript Vanilla.
+// Este arquivo foi removido pois a aplicação agora utiliza JavaScript Vanilla puro no index.tsx.

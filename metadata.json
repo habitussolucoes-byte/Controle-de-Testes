@@ -1,5 +1,5 @@
 {
-  "name": "Controle de Testes",
-  "description": "App para gestão de atendimento de clientes com alertas de tempo, fluxo de chamados e exportação de dados.",
+  "name": "Gestor de Clientes VIP",
+  "description": "App PWA Vanilla JS para gestão de atendimento com filtros de tempo e histórico.",
   "requestFramePermissions": []
 }

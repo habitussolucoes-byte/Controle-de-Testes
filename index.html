@@ -4,19 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Controle de Testes</title>
+    <title>Gestor de Clientes</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIkNvbnRyb2xlIGRlIFRlc3RlcyIsCiAgInNob3J0X25hbWUiOiAiVGVzdGVzIiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNmOGZhZmMiLAogICJ0aGVtZV9jb2xvciI6ICIjNGY0NmU1Igp9">
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIkdlc3RvciBkZSBDbGllbnRlcyIsCiAgInNob3J0X25hbWUiOiAiR2VzdG9yIiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNmOGZhZmMiLAogICJ0aGVtZV9jb2xvciI6ICIjNGY0NmU1Igp9">
     <meta name="theme-color" content="#4f46e5">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <style>
         .animate-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        /* Custom scrollbar for better mobile look */
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        body { -webkit-tap-highlight-color: transparent; }
     </style>
 <script type="importmap">
 {
@@ -27,7 +22,7 @@
 }
 </script>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-900 overflow-x-hidden selection:bg-indigo-100">
+<body class="bg-slate-50 min-h-screen text-slate-900 overflow-x-hidden">
     <div id="root"></div>
     <script type="module" src="index.tsx"></script>
 </body>
