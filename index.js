@@ -4,32 +4,32 @@ let state = {
     activeTab: 'pending'
 };
 
-const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+const DEFAULT_DURATION_MS = 2 * 60 * 60 * 1000;
 
 // Salvar no Storage
 const save = () => {
     localStorage.setItem('vip_clients', JSON.stringify(state.clients));
 };
 
-window.openWhatsApp = function(phone, message) {
-  const encodedMessage = encodeURIComponent(message);
-  const waApp = `whatsapp://send?phone=${phone}&text=${encodedMessage}`;
-  const waWeb = `https://wa.me/${phone}?text=${encodedMessage}`;
-
-  window.location.href = waApp;
-
-  setTimeout(() => {
-    window.open(waWeb, "_blank");
-  }, 1000);
+// Função para copiar o telefone
+window.copyPhone = (phone) => {
+    navigator.clipboard.writeText(phone).then(() => {
+        const toast = document.createElement('div');
+        toast.className = 'fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest shadow-2xl animate-in z-[100]';
+        toast.innerText = 'Número Copiado!';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2000);
+    }).catch(err => {
+        alert('Erro ao copiar número.');
+    });
 };
-
-
 
 // Funções de Negócio
 window.addClient = (event) => {
     event.preventDefault();
     const nameInput = document.getElementById('name');
     const phoneInput = document.getElementById('phone');
+    const durationInput = document.getElementById('duration');
 
     const cleanPhone = phoneInput.value.replace(/\D/g, '');
     if (cleanPhone.length < 8) {
@@ -37,10 +37,13 @@ window.addClient = (event) => {
         return;
     }
 
+    const durationHours = parseFloat(durationInput.value) || 2;
+    const durationMs = durationHours * 60 * 60 * 1000;
+
     // Verificar Duplicidade
     const existingIndex = state.clients.findIndex(c => c.phone === cleanPhone);
     if (existingIndex !== -1) {
-        const confirmMsg = `O número ${cleanPhone} já está cadastrado como "${state.clients[existingIndex].name}". Deseja excluir o registro antigo e manter o novo?`;
+        const confirmMsg = `O número ${cleanPhone} já está cadastrado como "${state.clients[existingIndex].name}". Deseja substituir?`;
         if (confirm(confirmMsg)) {
             state.clients.splice(existingIndex, 1);
         } else {
@@ -53,6 +56,7 @@ window.addClient = (event) => {
         name: nameInput.value,
         phone: cleanPhone,
         createdAt: Date.now(),
+        testDurationMs: durationMs,
         status: 'pending'
     };
 
@@ -61,6 +65,7 @@ window.addClient = (event) => {
     render();
     nameInput.value = '';
     phoneInput.value = '';
+    durationInput.value = '2';
 };
 
 window.markAsCalled = (id) => {
@@ -72,7 +77,7 @@ window.markAsCalled = (id) => {
 };
 
 window.deleteClient = (id) => {
-    if (confirm('Deseja realmente excluir este cliente?')) {
+    if (confirm('Deseja excluir este cliente? (Marcar como "Assinou")')) {
         state.clients = state.clients.filter(c => c.id !== id);
         save();
         render();
@@ -84,10 +89,11 @@ window.switchTab = (tab) => {
     render();
 };
 
-// Formatação do tempo restante
-const getRemainingTime = (createdAt) => {
+// Formatação do tempo restante dinâmico
+const getRemainingTime = (createdAt, testDurationMs) => {
+    const duration = testDurationMs || DEFAULT_DURATION_MS;
     const elapsed = Date.now() - createdAt;
-    const remaining = TWO_HOURS_MS - elapsed;
+    const remaining = duration - elapsed;
 
     if (remaining <= 0) return "Tempo esgotado";
 
@@ -102,17 +108,20 @@ const getRemainingTime = (createdAt) => {
 
 // Componentes Visuais
 const renderCard = (client) => {
+    const duration = client.testDurationMs || DEFAULT_DURATION_MS;
     const elapsed = Date.now() - client.createdAt;
-    const isOverdue = client.status === 'pending' && elapsed >= TWO_HOURS_MS;
+    const isOverdue = client.status === 'pending' && elapsed >= duration;
+    
     const timeCreated = new Date(client.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const remainingText = client.status === 'pending' ? getRemainingTime(client.createdAt) : '';
+    const remainingText = client.status === 'pending' ? getRemainingTime(client.createdAt, client.testDurationMs) : '';
+    const totalHours = (duration / (1000 * 60 * 60)).toFixed(1).replace('.0', '');
 
     return `
         <div class="bg-white p-5 rounded-[2.5rem] shadow-sm border transition-all animate-in ${isOverdue ? 'border-red-500 bg-red-50 shadow-red-100 shadow-xl' : 'border-slate-100'}">
             <div class="flex justify-between items-start mb-2">
                 <div>
                     <h3 class="font-black text-lg ${isOverdue ? 'text-red-900' : 'text-slate-800'}">${client.name}</h3>
-                    <p class="text-xs font-bold text-slate-400 mt-0.5">${client.phone}</p>
+                    <p class="text-xs font-bold text-slate-400 mt-0.5">${client.phone} • <span class="${isOverdue ? 'text-red-400' : 'text-slate-300'}">${totalHours}h de teste</span></p>
                 </div>
                 <div class="flex flex-col items-end gap-1">
                     <div class="bg-slate-100 px-3 py-1 rounded-full text-[10px] font-black text-slate-500 uppercase tracking-widest">
@@ -132,13 +141,14 @@ const renderCard = (client) => {
                         Já Chamei
                     </button>
                 ` : `
-                    <button onclick="deleteClient(${client.id})" class="flex-[2] bg-red-500 text-white font-black py-4 rounded-3xl text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all">
-                        Excluir
+                    <button onclick="deleteClient(${client.id})" class="flex-[2] bg-emerald-600 text-white font-black py-4 rounded-3xl text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all">
+                        Assinou (Excluir)
                     </button>
                 `}
-                <button onclick="openWhatsApp('55${client.phone.replace(/\D/g, '')}', 'Olá!')">
-Abrir WhatsApp
-</button>
+                <button onclick="copyPhone('${client.phone}')" class="flex-[3] bg-slate-100 text-slate-600 font-black py-4 rounded-3xl text-[10px] uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                    Copiar
+                </button>
             </div>
         </div>
     `;
@@ -153,9 +163,9 @@ const render = () => {
     };
 
     app.innerHTML = `
-        <div class="max-w-md mx-auto flex flex-col min-h-screen">
+        <div class="max-w-md mx-auto flex flex-col min-h-screen pb-10">
             <header class="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white pt-10 pb-12 px-6 rounded-b-[3rem] shadow-2xl border-b border-white/5">
-                <h1 class="text-2xl font-black tracking-tight text-amber-200">1Gestor VIP de Testes</h1>
+                <h1 class="text-2xl font-black tracking-tight text-amber-200">Gestor VIP de Testes</h1>
                 <p class="text-indigo-300 text-[10px] uppercase font-bold tracking-[0.2em] mt-1 opacity-90">Painel Operacional</p>
             </header>
 
@@ -174,8 +184,16 @@ const render = () => {
                         <h2 class="text-[10px] font-black text-slate-400 uppercase tracking-[2px] mb-4">Novo Cadastro</h2>
                         <form onsubmit="addClient(event)" class="space-y-4">
                             <input id="name" type="text" placeholder="Nome do Usuário" required class="w-full bg-slate-50 border-none p-4 rounded-2xl font-medium focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
-                            <input id="phone" type="tel" placeholder="Telefone (apenas números)" oninput="this.value = this.value.replace(/\\D/g, '')" required class="w-full bg-slate-50 border-none p-4 rounded-2xl font-medium focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
-                            <button type="submit" class="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all">Adicionar</button>
+                            
+                            <div class="flex gap-2">
+                                <input id="phone" type="tel" placeholder="Telefone" oninput="this.value = this.value.replace(/\\D/g, '')" required class="flex-[3] bg-slate-50 border-none p-4 rounded-2xl font-medium focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                                <div class="flex-[1] relative">
+                                    <input id="duration" type="number" value="2" step="0.5" min="0.5" required class="w-full bg-slate-50 border-none p-4 rounded-2xl font-medium focus:ring-2 focus:ring-indigo-500 outline-none text-sm pr-6 text-center">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300">h</span>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all">Adicionar na Fila</button>
                         </form>
                     </section>
                 ` : ''}
@@ -183,9 +201,8 @@ const render = () => {
                 <div class="space-y-4">
                     <div class="flex justify-between items-center px-1">
                         <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                            ${state.activeTab === 'pending' ? 'Aguardando Atendimento' : 'Histórico de Chamadas'}
+                            ${state.activeTab === 'pending' ? 'Aguardando Atendimento' : 'Clientes que Já Chamei'}
                         </span>
-                        <span class="text-[10px] font-bold bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">${filteredClients.length}</span>
                     </div>
                     ${filteredClients.length === 0 ? `
                         <div class="py-12 text-center text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-[2.5rem]">
@@ -194,15 +211,11 @@ const render = () => {
                     ` : filteredClients.map(c => renderCard(c)).join('')}
                 </div>
             </main>
-
-            <footer class="p-6 text-center text-slate-300 text-[10px] font-black uppercase tracking-widest">
-                Gestão de Clientes &copy; 2025
-            </footer>
         </div>
     `;
 };
 
-// Auto-Refresh a cada 1 minuto para atualizar o cronômetro
-setInterval(() => render(), 60000);
+// Auto-Refresh a cada 30 segundos para precisão do cronômetro
+setInterval(() => render(), 30000);
 
 render();
