@@ -11,5 +11,3 @@ export interface Client {
 export interface AppSettings {
   whatsappMessage: string;
 }
-
-export type FilterType = 'pending' | 'called';
