@@ -1,8 +1,10 @@
 // Estado Inicial
 let state = {
     clients: JSON.parse(localStorage.getItem('vip_clients') || '[]'),
-    activeTab: 'pending' // 'pending' ou 'called'
+    activeTab: 'pending'
 };
+
+const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
 // Salvar no Storage
 const save = () => {
@@ -15,11 +17,21 @@ window.addClient = (event) => {
     const nameInput = document.getElementById('name');
     const phoneInput = document.getElementById('phone');
 
-    // Validação extra de segurança para garantir que apenas números foram enviados
     const cleanPhone = phoneInput.value.replace(/\D/g, '');
     if (cleanPhone.length < 8) {
         alert('Por favor, insira um número de telefone válido.');
         return;
+    }
+
+    // Verificar Duplicidade
+    const existingIndex = state.clients.findIndex(c => c.phone === cleanPhone);
+    if (existingIndex !== -1) {
+        const confirmMsg = `O número ${cleanPhone} já está cadastrado como "${state.clients[existingIndex].name}". Deseja excluir o registro antigo e manter o novo?`;
+        if (confirm(confirmMsg)) {
+            state.clients.splice(existingIndex, 1);
+        } else {
+            return;
+        }
     }
 
     const newClient = {
@@ -33,20 +45,20 @@ window.addClient = (event) => {
     state.clients.unshift(newClient);
     save();
     render();
+    nameInput.value = '';
+    phoneInput.value = '';
 };
 
 window.markAsCalled = (id) => {
-    if (confirm('Deseja realmente excluir este cliente da fila?')) {
-        state.clients = state.clients.map(c => 
-            c.id === id ? { ...c, status: 'called' } : c
-        );
-        save();
-        render();
-    }
+    state.clients = state.clients.map(c => 
+        c.id === id ? { ...c, status: 'called' } : c
+    );
+    save();
+    render();
 };
 
 window.deleteClient = (id) => {
-    if (confirm('Deseja marcar como "Assinou" e remover este cliente definitivamente?')) {
+    if (confirm('Deseja realmente excluir este cliente?')) {
         state.clients = state.clients.filter(c => c.id !== id);
         save();
         render();
@@ -58,32 +70,56 @@ window.switchTab = (tab) => {
     render();
 };
 
+// Formatação do tempo restante
+const getRemainingTime = (createdAt) => {
+    const elapsed = Date.now() - createdAt;
+    const remaining = TWO_HOURS_MS - elapsed;
+
+    if (remaining <= 0) return "Tempo esgotado";
+
+    const hours = Math.floor(remaining / (1000 * 60 * 60));
+    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (hours > 0) {
+        return `Faltam ${hours}h ${minutes}min`;
+    }
+    return `Faltam ${minutes}min`;
+};
+
 // Componentes Visuais
 const renderCard = (client) => {
-    const hoursWaiting = (Date.now() - client.createdAt) / (1000 * 60 * 60);
-    const isOverdue = client.status === 'pending' && hoursWaiting >= 2;
-    const time = new Date(client.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const elapsed = Date.now() - client.createdAt;
+    const isOverdue = client.status === 'pending' && elapsed >= TWO_HOURS_MS;
+    const timeCreated = new Date(client.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const remainingText = client.status === 'pending' ? getRemainingTime(client.createdAt) : '';
 
     return `
         <div class="bg-white p-5 rounded-[2.5rem] shadow-sm border transition-all animate-in ${isOverdue ? 'border-red-500 bg-red-50 shadow-red-100 shadow-xl' : 'border-slate-100'}">
-            <div class="flex justify-between items-start mb-4">
+            <div class="flex justify-between items-start mb-2">
                 <div>
                     <h3 class="font-black text-lg ${isOverdue ? 'text-red-900' : 'text-slate-800'}">${client.name}</h3>
                     <p class="text-xs font-bold text-slate-400 mt-0.5">${client.phone}</p>
                 </div>
-                <div class="bg-slate-100 px-3 py-1 rounded-full text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                    ${time}
+                <div class="flex flex-col items-end gap-1">
+                    <div class="bg-slate-100 px-3 py-1 rounded-full text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                        Início: ${timeCreated}
+                    </div>
+                    ${client.status === 'pending' ? `
+                        <div class="text-[9px] font-black uppercase tracking-wider ${isOverdue ? 'text-red-600 animate-pulse' : 'text-indigo-500'}">
+                            ${remainingText}
+                        </div>
+                    ` : ''}
                 </div>
             </div>
             
-            <div class="flex gap-2">
+            <div class="flex gap-2 mt-4">
                 ${client.status === 'pending' ? `
                     <button onclick="markAsCalled(${client.id})" class="flex-1 bg-indigo-600 text-white font-black py-4 rounded-3xl text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all">
-                        Excluir
+                        Já Chamei
                     </button>
                 ` : `
-                    <button onclick="deleteClient(${client.id})" class="flex-1 bg-emerald-600 text-white font-black py-4 rounded-3xl text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all">
-                        Assinou (Remover)
+                    <button onclick="deleteClient(${client.id})" class="flex-1 bg-red-500 text-white font-black py-4 rounded-3xl text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all">
+                        Excluir
                     </button>
                 `}
                 <a href="https://wa.me/55${client.phone.replace(/\D/g, '')}" target="_blank" class="w-14 h-14 bg-emerald-100 text-emerald-600 flex items-center justify-center rounded-3xl active:scale-90 transition-all">
@@ -104,13 +140,11 @@ const render = () => {
 
     app.innerHTML = `
         <div class="max-w-md mx-auto flex flex-col min-h-screen">
-            <!-- Header -->
             <header class="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white pt-10 pb-12 px-6 rounded-b-[3rem] shadow-2xl border-b border-white/5">
                 <h1 class="text-2xl font-black tracking-tight text-amber-200">Gestor VIP de Testes</h1>
                 <p class="text-indigo-300 text-[10px] uppercase font-bold tracking-[0.2em] mt-1 opacity-90">Painel Operacional</p>
             </header>
 
-            <!-- Tabs -->
             <nav class="flex gap-4 px-4 -mt-6">
                 <button onclick="switchTab('pending')" class="flex-1 py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest transition-all ${state.activeTab === 'pending' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-200' : 'bg-white text-slate-400 border border-slate-100'}">
                     Fila (${counts.pending})
@@ -121,7 +155,6 @@ const render = () => {
             </nav>
 
             <main class="flex-1 p-4 space-y-6">
-                <!-- Form -->
                 ${state.activeTab === 'pending' ? `
                     <section class="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
                         <h2 class="text-[10px] font-black text-slate-400 uppercase tracking-[2px] mb-4">Novo Cadastro</h2>
@@ -133,7 +166,6 @@ const render = () => {
                     </section>
                 ` : ''}
 
-                <!-- List -->
                 <div class="space-y-4">
                     <div class="flex justify-between items-center px-1">
                         <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -156,8 +188,7 @@ const render = () => {
     `;
 };
 
-// Auto-Refresh para atualizar cores do tempo
+// Auto-Refresh a cada 1 minuto para atualizar o cronômetro
 setInterval(() => render(), 60000);
 
-// Início
 render();
