@@ -1,4 +1,3 @@
-
 // Estado Inicial
 let state = {
     clients: JSON.parse(localStorage.getItem('vip_clients') || '[]'),
@@ -16,10 +15,17 @@ window.addClient = (event) => {
     const nameInput = document.getElementById('name');
     const phoneInput = document.getElementById('phone');
 
+    // Validação extra de segurança para garantir que apenas números foram enviados
+    const cleanPhone = phoneInput.value.replace(/\D/g, '');
+    if (cleanPhone.length < 8) {
+        alert('Por favor, insira um número de telefone válido.');
+        return;
+    }
+
     const newClient = {
         id: Date.now(),
         name: nameInput.value,
-        phone: phoneInput.value,
+        phone: cleanPhone,
         createdAt: Date.now(),
         status: 'pending'
     };
@@ -30,15 +36,17 @@ window.addClient = (event) => {
 };
 
 window.markAsCalled = (id) => {
-    state.clients = state.clients.map(c => 
-        c.id === id ? { ...c, status: 'called' } : c
-    );
-    save();
-    render();
+    if (confirm('Deseja realmente excluir este cliente da fila?')) {
+        state.clients = state.clients.map(c => 
+            c.id === id ? { ...c, status: 'called' } : c
+        );
+        save();
+        render();
+    }
 };
 
 window.deleteClient = (id) => {
-    if (confirm('Deseja marcar como "Assinou" e remover este cliente?')) {
+    if (confirm('Deseja marcar como "Assinou" e remover este cliente definitivamente?')) {
         state.clients = state.clients.filter(c => c.id !== id);
         save();
         render();
@@ -71,7 +79,7 @@ const renderCard = (client) => {
             <div class="flex gap-2">
                 ${client.status === 'pending' ? `
                     <button onclick="markAsCalled(${client.id})" class="flex-1 bg-indigo-600 text-white font-black py-4 rounded-3xl text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all">
-                        Já Chamei
+                        Excluir
                     </button>
                 ` : `
                     <button onclick="deleteClient(${client.id})" class="flex-1 bg-emerald-600 text-white font-black py-4 rounded-3xl text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all">
@@ -97,9 +105,9 @@ const render = () => {
     app.innerHTML = `
         <div class="max-w-md mx-auto flex flex-col min-h-screen">
             <!-- Header -->
-            <header class="bg-indigo-600 text-white pt-10 pb-12 px-6 rounded-b-[3rem] shadow-xl">
-                <h1 class="text-2xl font-black">Gestor VIP</h1>
-                <p class="text-indigo-100 text-[10px] uppercase font-bold tracking-widest mt-1 opacity-70">Controle Operacional</p>
+            <header class="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white pt-10 pb-12 px-6 rounded-b-[3rem] shadow-2xl border-b border-white/5">
+                <h1 class="text-2xl font-black tracking-tight text-amber-200">Gestor VIP de Testes</h1>
+                <p class="text-indigo-300 text-[10px] uppercase font-bold tracking-[0.2em] mt-1 opacity-90">Painel Operacional</p>
             </header>
 
             <!-- Tabs -->
@@ -119,8 +127,8 @@ const render = () => {
                         <h2 class="text-[10px] font-black text-slate-400 uppercase tracking-[2px] mb-4">Novo Cadastro</h2>
                         <form onsubmit="addClient(event)" class="space-y-4">
                             <input id="name" type="text" placeholder="Nome do Usuário" required class="w-full bg-slate-50 border-none p-4 rounded-2xl font-medium focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
-                            <input id="phone" type="tel" placeholder="Telefone" required class="w-full bg-slate-50 border-none p-4 rounded-2xl font-medium focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
-                            <button type="submit" class="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-lg">Adicionar</button>
+                            <input id="phone" type="tel" placeholder="Telefone (apenas números)" oninput="this.value = this.value.replace(/\\D/g, '')" required class="w-full bg-slate-50 border-none p-4 rounded-2xl font-medium focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                            <button type="submit" class="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all">Adicionar</button>
                         </form>
                     </section>
                 ` : ''}
