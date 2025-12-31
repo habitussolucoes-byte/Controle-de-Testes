@@ -155,7 +155,7 @@ const render = () => {
     app.innerHTML = `
         <div class="max-w-md mx-auto flex flex-col min-h-screen">
             <header class="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white pt-10 pb-12 px-6 rounded-b-[3rem] shadow-2xl border-b border-white/5">
-                <h1 class="text-2xl font-black tracking-tight text-amber-200">Gestor VIP de Testes</h1>
+                <h1 class="text-2xl font-black tracking-tight text-amber-200">1Gestor VIP de Testes</h1>
                 <p class="text-indigo-300 text-[10px] uppercase font-bold tracking-[0.2em] mt-1 opacity-90">Painel Operacional</p>
             </header>
 
