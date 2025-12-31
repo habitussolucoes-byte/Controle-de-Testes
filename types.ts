@@ -1,15 +1,15 @@
 
-// Types for the application components
+export type ClientStatus = 'pending' | 'called';
 
 export interface Client {
-    id: string;
-    name: string;
-    phone: string;
-    createdAt: number;
-    status: 'pending' | 'called';
-    calledAt?: number;
+  id: string;
+  name: string;
+  phone: string;
+  createdAt: number;
+  status: ClientStatus;
+  calledAt?: number;
 }
 
 export interface AppSettings {
-    whatsappMessage: string;
+  whatsappMessage: string;
 }
