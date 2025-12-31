@@ -1,2 +1,0 @@
-
-// Arquivo removido em favor do index.js

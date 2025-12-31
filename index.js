@@ -1,221 +1,296 @@
-// Estado Inicial
-let state = {
-    clients: JSON.parse(localStorage.getItem('vip_clients') || '[]'),
-    activeTab: 'pending'
-};
-
-const DEFAULT_DURATION_MS = 2 * 60 * 60 * 1000;
-
-// Salvar no Storage
-const save = () => {
-    localStorage.setItem('vip_clients', JSON.stringify(state.clients));
-};
-
-// Função para copiar o telefone
-window.copyPhone = (phone) => {
-    navigator.clipboard.writeText(phone).then(() => {
-        const toast = document.createElement('div');
-        toast.className = 'fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest shadow-2xl animate-in z-[100]';
-        toast.innerText = 'Número Copiado!';
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 2000);
-    }).catch(err => {
-        alert('Erro ao copiar número.');
-    });
-};
-
-// Funções de Negócio
-window.addClient = (event) => {
-    event.preventDefault();
-    const nameInput = document.getElementById('name');
-    const phoneInput = document.getElementById('phone');
-    const durationInput = document.getElementById('duration');
-
-    const cleanPhone = phoneInput.value.replace(/\D/g, '');
-    if (cleanPhone.length < 8) {
-        alert('Por favor, insira um número de telefone válido.');
-        return;
-    }
-
-    const durationHours = parseFloat(durationInput.value) || 2;
-    const durationMs = durationHours * 60 * 60 * 1000;
-
-    // Verificar Duplicidade
-    const existingIndex = state.clients.findIndex(c => c.phone === cleanPhone);
-    if (existingIndex !== -1) {
-        const confirmMsg = `O número ${cleanPhone} já está cadastrado como "${state.clients[existingIndex].name}". Deseja substituir?`;
-        if (confirm(confirmMsg)) {
-            state.clients.splice(existingIndex, 1);
-        } else {
-            return;
-        }
-    }
-
-    const newClient = {
-        id: Date.now(),
-        name: nameInput.value,
-        phone: cleanPhone,
-        createdAt: Date.now(),
-        testDurationMs: durationMs,
-        status: 'pending'
-    };
-
-    state.clients.unshift(newClient);
-    save();
-    render();
-    nameInput.value = '';
-    phoneInput.value = '';
-    durationInput.value = '2';
-};
-
-window.markAsCalled = (id) => {
-    state.clients = state.clients.map(c => 
-        c.id === id ? { ...c, status: 'called' } : c
-    );
-    save();
-    render();
-};
-
-window.deleteClient = (id) => {
-    if (confirm('Deseja excluir este cliente? (Marcar como "Assinou")')) {
-        state.clients = state.clients.filter(c => c.id !== id);
-        save();
-        render();
-    }
-};
-
-window.switchTab = (tab) => {
-    state.activeTab = tab;
-    render();
-};
-
-// Formatação do tempo restante dinâmico
-const getRemainingTime = (createdAt, testDurationMs) => {
-    const duration = testDurationMs || DEFAULT_DURATION_MS;
-    const elapsed = Date.now() - createdAt;
-    const remaining = duration - elapsed;
-
-    if (remaining <= 0) return "Tempo esgotado";
-
-    const hours = Math.floor(remaining / (1000 * 60 * 60));
-    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-
-    if (hours > 0) {
-        return `Faltam ${hours}h ${minutes}min`;
-    }
-    return `Faltam ${minutes}min`;
-};
-
-// Componentes Visuais
-const renderCard = (client) => {
-    const duration = client.testDurationMs || DEFAULT_DURATION_MS;
-    const elapsed = Date.now() - client.createdAt;
-    const isOverdue = client.status === 'pending' && elapsed >= duration;
+(function() {
+    const STORAGE_KEY = 'gestor_vip_final_v7';
     
-    const timeCreated = new Date(client.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const remainingText = client.status === 'pending' ? getRemainingTime(client.createdAt, client.testDurationMs) : '';
-    const totalHours = (duration / (1000 * 60 * 60)).toFixed(1).replace('.0', '');
-
-    return `
-        <div class="bg-white p-5 rounded-[2.5rem] shadow-sm border transition-all animate-in ${isOverdue ? 'border-red-500 bg-red-50 shadow-red-100 shadow-xl' : 'border-slate-100'}">
-            <div class="flex justify-between items-start mb-2">
-                <div>
-                    <h3 class="font-black text-lg ${isOverdue ? 'text-red-900' : 'text-slate-800'}">${client.name}</h3>
-                    <p class="text-xs font-bold text-slate-400 mt-0.5">${client.phone} • <span class="${isOverdue ? 'text-red-400' : 'text-slate-300'}">${totalHours}h de teste</span></p>
-                </div>
-                <div class="flex flex-col items-end gap-1">
-                    <div class="bg-slate-100 px-3 py-1 rounded-full text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                        ${timeCreated}
-                    </div>
-                    ${client.status === 'pending' ? `
-                        <div class="text-[9px] font-black uppercase tracking-wider ${isOverdue ? 'text-red-600 animate-pulse' : 'text-indigo-500'}">
-                            ${remainingText}
-                        </div>
-                    ` : ''}
-                </div>
-            </div>
-            
-            <div class="flex gap-2 mt-4">
-                ${client.status === 'pending' ? `
-                    <button onclick="markAsCalled(${client.id})" class="flex-[2] bg-indigo-600 text-white font-black py-4 rounded-3xl text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all">
-                        Já Chamei
-                    </button>
-                ` : `
-                    <button onclick="deleteClient(${client.id})" class="flex-[2] bg-emerald-600 text-white font-black py-4 rounded-3xl text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all">
-                        Assinou (Excluir)
-                    </button>
-                `}
-                <button onclick="copyPhone('${client.phone}')" class="flex-[3] bg-slate-100 text-slate-600 font-black py-4 rounded-3xl text-[10px] uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
-                    Copiar
-                </button>
-            </div>
-        </div>
-    `;
-};
-
-const render = () => {
-    const app = document.getElementById('app');
-    const filteredClients = state.clients.filter(c => c.status === state.activeTab);
-    const counts = {
-        pending: state.clients.filter(c => c.status === 'pending').length,
-        called: state.clients.filter(c => c.status === 'called').length
+    let state = {
+        clients: JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'),
+        activeTab: 'pending',
+        filterDate: 'all', // all, week, month, year
+        sortBy: 'newest' // newest, oldest
     };
 
-    app.innerHTML = `
-        <div class="max-w-md mx-auto flex flex-col min-h-screen pb-10">
-            <header class="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white pt-10 pb-12 px-6 rounded-b-[3rem] shadow-2xl border-b border-white/5">
-                <h1 class="text-2xl font-black tracking-tight text-amber-200">Gestor VIP de Testes</h1>
-                <p class="text-indigo-300 text-[10px] uppercase font-bold tracking-[0.2em] mt-1 opacity-90">Painel Operacional</p>
-            </header>
+    const save = () => {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.clients));
+    };
 
-            <nav class="flex gap-4 px-4 -mt-6">
-                <button onclick="switchTab('pending')" class="flex-1 py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest transition-all ${state.activeTab === 'pending' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-200' : 'bg-white text-slate-400 border border-slate-100'}">
-                    Fila (${counts.pending})
-                </button>
-                <button onclick="switchTab('called')" class="flex-1 py-4 rounded-3xl font-black text-[10px] uppercase tracking-widest transition-all ${state.activeTab === 'called' ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-200' : 'bg-white text-slate-400 border border-slate-100'}">
-                    Chamados (${counts.called})
-                </button>
-            </nav>
+    const TWO_HOURS = 2 * 60 * 60 * 1000;
 
-            <main class="flex-1 p-4 space-y-6">
-                ${state.activeTab === 'pending' ? `
-                    <section class="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
-                        <h2 class="text-[10px] font-black text-slate-400 uppercase tracking-[2px] mb-4">Novo Cadastro</h2>
-                        <form onsubmit="addClient(event)" class="space-y-4">
-                            <input id="name" type="text" placeholder="Nome do Usuário" required class="w-full bg-slate-50 border-none p-4 rounded-2xl font-medium focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
-                            
-                            <div class="flex gap-2">
-                                <input id="phone" type="tel" placeholder="Telefone" oninput="this.value = this.value.replace(/\\D/g, '')" required class="flex-[3] bg-slate-50 border-none p-4 rounded-2xl font-medium focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
-                                <div class="flex-[1] relative">
-                                    <input id="duration" type="number" value="2" step="0.5" min="0.5" required class="w-full bg-slate-50 border-none p-4 rounded-2xl font-medium focus:ring-2 focus:ring-indigo-500 outline-none text-sm pr-6 text-center">
-                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300">h</span>
+    const formatFullDate = (ts) => new Date(ts).toLocaleDateString('pt-BR') + ' ' + new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const formatTime = (ts) => new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    
+    const getWaitTime = (createdAt) => {
+        const diff = Date.now() - createdAt;
+        const remaining = TWO_HOURS - diff;
+        if (remaining <= 0) return "Tempo esgotado";
+        const mins = Math.floor(remaining / 60000);
+        const hrs = Math.floor(mins / 60);
+        return hrs > 0 ? `${hrs}h ${mins % 60}m` : `${mins}m`;
+    };
+
+    // Lógica de Filtro de Data
+    const isWithinPeriod = (ts, period) => {
+        const date = new Date(ts);
+        const now = new Date();
+        if (period === 'all') return true;
+        if (period === 'year') return date.getFullYear() === now.getFullYear();
+        if (period === 'month') return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+        if (period === 'week') {
+            const oneDay = 24 * 60 * 60 * 1000;
+            const diff = now - date;
+            return diff < (7 * oneDay);
+        }
+        return true;
+    };
+
+    // Função de Exportação CSV
+    const exportToCSV = (data) => {
+        const headers = ["Nome", "Telefone", "Data Cadastro", "Status", "IBO Atualizado"];
+        const rows = data.map(c => [
+            c.name,
+            c.phone,
+            formatFullDate(c.createdAt),
+            c.status === 'pending' ? 'Fila' : 'Chamado',
+            c.iboUpdated ? 'Sim' : 'Não'
+        ]);
+
+        const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(";")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `clientes_vip_${new Date().toISOString().slice(0,10)}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const render = () => {
+        const app = document.getElementById('app');
+        if (!app) return;
+
+        // Filtragem Inicial por Aba
+        let filtered = state.clients.filter(c => c.status === state.activeTab);
+
+        // Aplica Filtros de Data (apenas na aba Chamados)
+        if (state.activeTab === 'called') {
+            filtered = filtered.filter(c => isWithinPeriod(c.createdAt, state.filterDate));
+        }
+
+        // Aplica Ordenação
+        filtered.sort((a, b) => {
+            return state.sortBy === 'newest' ? b.createdAt - a.createdAt : a.createdAt - b.createdAt;
+        });
+
+        const counts = {
+            pending: state.clients.filter(c => c.status === 'pending').length,
+            called: state.clients.filter(c => c.status === 'called').length
+        };
+
+        app.innerHTML = `
+            <div class="max-w-md mx-auto min-h-screen flex flex-col pb-10 bg-slate-50">
+                <header class="bg-slate-900 text-white p-8 rounded-b-[3rem] shadow-xl">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h1 class="text-2xl font-black text-amber-300 italic tracking-tighter">GESTOR VIP</h1>
+                            <p class="text-[9px] font-bold text-slate-500 uppercase tracking-[0.3em]">Gestão de Atendimento</p>
+                        </div>
+                        ${state.activeTab === 'called' && filtered.length > 0 ? `
+                            <button data-action="export" class="bg-emerald-500/20 text-emerald-400 p-3 rounded-2xl active:scale-95 transition-all">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            </button>
+                        ` : ''}
+                    </div>
+                </header>
+
+                <div class="flex gap-3 px-6 -mt-8">
+                    <button data-tab="pending" class="flex-1 py-5 rounded-3xl font-black text-[10px] uppercase tracking-widest transition-all ${state.activeTab === 'pending' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100'}">
+                        Fila (${counts.pending})
+                    </button>
+                    <button data-tab="called" class="flex-1 py-5 rounded-3xl font-black text-[10px] uppercase tracking-widest transition-all ${state.activeTab === 'called' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100'}">
+                        Chamados (${counts.called})
+                    </button>
+                </div>
+
+                <main class="p-6 flex-1">
+                    ${state.activeTab === 'pending' ? `
+                        <form id="add-form" class="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 mb-8 animate-in">
+                            <h2 class="text-[10px] font-black text-slate-400 uppercase mb-4 tracking-widest">Novo Cliente</h2>
+                            <div class="space-y-3">
+                                <input id="name" type="text" placeholder="Nome do Usuário" required class="w-full bg-slate-50 p-4 rounded-2xl outline-none text-sm font-bold border-2 border-transparent focus:border-indigo-100 transition-all">
+                                <input id="phone" type="tel" placeholder="Telefone" required class="w-full bg-slate-50 p-4 rounded-2xl outline-none text-sm font-bold border-2 border-transparent focus:border-indigo-100 transition-all">
+                                <button type="submit" class="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl text-xs uppercase shadow-lg active:scale-95 transition-transform">Adicionar na Fila</button>
+                            </div>
+                        </form>
+                    ` : `
+                        <div class="mb-6 space-y-4 animate-in">
+                            <div class="flex flex-wrap gap-2">
+                                ${['all', 'week', 'month', 'year'].map(p => `
+                                    <button data-filter-date="${p}" class="px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${state.filterDate === p ? 'bg-slate-800 text-white' : 'bg-white text-slate-400 border border-slate-100'}">
+                                        ${p === 'all' ? 'Tudo' : p === 'week' ? 'Semana' : p === 'month' ? 'Mês' : 'Ano'}
+                                    </button>
+                                `).join('')}
+                            </div>
+                            <div class="flex items-center justify-between bg-white p-3 rounded-2xl border border-slate-100">
+                                <span class="text-[9px] font-black text-slate-400 uppercase ml-2">Ordenar por:</span>
+                                <div class="flex gap-1">
+                                    <button data-sort="newest" class="px-3 py-1.5 rounded-lg text-[9px] font-bold ${state.sortBy === 'newest' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400'}">Mais Recente</button>
+                                    <button data-sort="oldest" class="px-3 py-1.5 rounded-lg text-[9px] font-bold ${state.sortBy === 'oldest' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400'}">Mais Antigo</button>
                                 </div>
                             </div>
-                            
-                            <button type="submit" class="w-full bg-indigo-600 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all">Adicionar na Fila</button>
-                        </form>
-                    </section>
-                ` : ''}
-
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center px-1">
-                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                            ${state.activeTab === 'pending' ? 'Aguardando Atendimento' : 'Clientes que Já Chamei'}
-                        </span>
-                    </div>
-                    ${filteredClients.length === 0 ? `
-                        <div class="py-12 text-center text-slate-400 text-xs font-bold border-2 border-dashed border-slate-200 rounded-[2.5rem]">
-                            Nenhum cliente por aqui.
                         </div>
-                    ` : filteredClients.map(c => renderCard(c)).join('')}
-                </div>
-            </main>
-        </div>
-    `;
-};
+                    `}
 
-// Auto-Refresh a cada 30 segundos para precisão do cronômetro
-setInterval(() => render(), 30000);
+                    <div id="list" class="space-y-4">
+                        ${filtered.length === 0 ? `
+                            <div class="text-center py-20 border-2 border-dashed border-slate-200 rounded-[3rem]">
+                                <p class="text-slate-300 font-black text-[10px] uppercase tracking-widest">Nenhum registro</p>
+                            </div>
+                        ` : filtered.map(c => {
+                            const isOverdue = c.status === 'pending' && (Date.now() - c.createdAt >= TWO_HOURS);
+                            return `
+                                <div class="bg-white p-5 rounded-[2rem] border-2 transition-all animate-in ${isOverdue ? 'border-red-500 bg-red-50' : 'border-slate-100'}">
+                                    <div class="flex justify-between items-start mb-4">
+                                        <div class="max-w-[180px]">
+                                            <h3 class="font-black text-slate-800 truncate">${c.name}</h3>
+                                            <p class="text-xs font-bold text-slate-400">${c.phone}</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="bg-slate-100 px-2 py-1 rounded-lg text-[10px] font-black text-slate-500">${formatTime(c.createdAt)}</div>
+                                            ${c.status === 'pending' ? `<div class="text-[9px] font-black mt-1 uppercase ${isOverdue ? 'text-red-600 animate-pulse' : 'text-indigo-500'}">${getWaitTime(c.createdAt)}</div>` : ''}
+                                        </div>
+                                    </div>
 
-render();
+                                    ${c.status === 'called' ? `
+                                        <div class="mb-4 flex items-center gap-3 bg-slate-50 p-4 rounded-2xl border ${c.iboUpdated ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200'}">
+                                            <input type="checkbox" id="ibo-${c.id}" data-id="${c.id}" data-action="toggle-ibo" ${c.iboUpdated ? 'checked' : ''} class="w-7 h-7 accent-emerald-600">
+                                            <label for="ibo-${c.id}" class="text-[10px] font-black text-slate-600 uppercase select-none">IBO ATUALIZADO</label>
+                                        </div>
+                                    ` : ''}
+
+                                    <div class="flex gap-2">
+                                        ${c.status === 'pending' ? `
+                                            <button data-id="${c.id}" data-action="call" class="flex-1 bg-indigo-600 text-white font-black py-4 rounded-3xl text-[10px] uppercase shadow-md active:scale-95 transition-all">Já Chamei</button>
+                                        ` : `
+                                            <button data-id="${c.id}" data-action="delete" class="flex-1 ${c.iboUpdated ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-400'} font-black py-4 rounded-3xl text-[10px] uppercase shadow-md active:scale-95 transition-all">
+                                                Assinou (Excluir)
+                                            </button>
+                                        `}
+                                        <button data-phone="${c.phone}" data-action="copy" class="bg-slate-100 text-slate-500 p-4 rounded-3xl active:scale-90 transition-all">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </main>
+            </div>
+        `;
+    };
+
+    // --- ESCUTADOR DE EVENTOS GLOBAL ---
+    document.addEventListener('click', function(e) {
+        const target = e.target.closest('[data-action], [data-tab], [data-filter-date], [data-sort]');
+        if (!target) return;
+
+        // Troca de Aba
+        if (target.dataset.tab) {
+            state.activeTab = target.dataset.tab;
+            render();
+            return;
+        }
+
+        // Filtros de Data
+        if (target.dataset.filterDate) {
+            state.filterDate = target.dataset.filterDate;
+            render();
+            return;
+        }
+
+        // Ordenação
+        if (target.dataset.sort) {
+            state.sortBy = target.dataset.sort;
+            render();
+            return;
+        }
+
+        const action = target.dataset.action;
+        const id = target.dataset.id;
+
+        // Exportação
+        if (action === 'export') {
+            const dataToExport = state.clients
+                .filter(c => c.status === 'called')
+                .filter(c => isWithinPeriod(c.createdAt, state.filterDate));
+            exportToCSV(dataToExport);
+            return;
+        }
+
+        const clientIndex = state.clients.findIndex(c => String(c.id) === String(id));
+        const client = state.clients[clientIndex];
+
+        if (action === 'call' && client) {
+            client.status = 'called';
+            save();
+            render();
+        } 
+        else if (action === 'toggle-ibo' && client) {
+            client.iboUpdated = target.checked;
+            save();
+            render();
+        } 
+        else if (action === 'delete' && client) {
+            if (!client.iboUpdated) {
+                alert("AVISO: Marque 'IBO ATUALIZADO' para habilitar a exclusão.");
+                return;
+            }
+            state.clients.splice(clientIndex, 1);
+            save();
+            render();
+        } 
+        else if (action === 'copy') {
+            const phone = target.dataset.phone;
+            navigator.clipboard.writeText(phone).then(() => {
+                const original = target.innerHTML;
+                target.innerHTML = '<span class="text-[9px]">OK!</span>';
+                setTimeout(() => target.innerHTML = original, 1000);
+            });
+        }
+    });
+
+    // --- ESCUTADOR DE FORMULÁRIO ---
+    document.addEventListener('submit', function(e) {
+        if (e.target.id === 'add-form') {
+            e.preventDefault();
+            const nameInp = document.getElementById('name');
+            const phoneInp = document.getElementById('phone');
+            
+            const name = nameInp.value.trim();
+            const phone = phoneInp.value.replace(/\D/g, '');
+
+            if (!name || phone.length < 8) {
+                alert('Preencha nome e telefone corretamente.');
+                return;
+            }
+
+            const newClient = {
+                id: "ID_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4),
+                name: name,
+                phone: phone,
+                createdAt: Date.now(),
+                status: 'pending',
+                iboUpdated: false
+            };
+
+            state.clients.unshift(newClient);
+            save();
+            render();
+        }
+    });
+
+    setInterval(() => {
+        if (state.activeTab === 'pending') render();
+    }, 20000);
+
+    render();
+})();
