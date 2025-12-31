@@ -1,5 +1,5 @@
 {
-  "name": "Gestor de Clientes VIP",
-  "description": "App PWA Vanilla JS para gestão de atendimento com filtros de tempo e histórico.",
+  "name": "Gestor Clientes VIP",
+  "description": "Gestão de atendimento simples e rápida com alertas de tempo.",
   "requestFramePermissions": []
 }

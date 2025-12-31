@@ -1,13 +1,11 @@
 
-export type ClientStatus = 'pending' | 'called';
-
+// Fix: Restaurando interfaces para que o arquivo seja reconhecido como um módulo TypeScript válido
 export interface Client {
-  id: string;
+  id: number;
   name: string;
   phone: string;
   createdAt: number;
-  status: ClientStatus;
-  calledAt?: number;
+  status: 'pending' | 'called';
 }
 
 export interface AppSettings {
